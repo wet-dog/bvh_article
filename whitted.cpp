@@ -27,9 +27,9 @@ inline float3 RGB8toRGB32F( uint c )
 void WhittedApp::Init()
 {
 	mesh = new Mesh( "assets/teapot.obj", "assets/bricks.png" );
-	for (int i = 0; i < 16; i++)
+	for (int i = 0; i < 1; i++)
 		bvhInstance[i] = BVHInstance( mesh->bvh, i );
-	tlas = TLAS( bvhInstance, 16 );
+	tlas = TLAS( bvhInstance, 1 );
 	// create a floating point accumulator for the screen
 	accumulator = new float3[SCRWIDTH * SCRHEIGHT];
 	// load HDR sky
@@ -41,16 +41,16 @@ void WhittedApp::Init()
 void WhittedApp::AnimateScene()
 {
 	// animate the scene
-	static float a[16] = { 0 }, h[16] = { 5, 4, 3, 2, 1, 5, 4, 3 }, s[16] = { 0 };
-	for (int i = 0, x = 0; x < 4; x++) for (int y = 0; y < 4; y++, i++)
-	{
-		mat4 R, T = mat4::Translate( (x - 1.5f) * 2.5f, 0, (y - 1.5f) * 2.5f );
-		if ((x + y) & 1) R = mat4::RotateY( a[i] );
-		else R = mat4::Translate( 0, h[i / 2], 0 );
-		if ((a[i] += (((i * 13) & 7) + 2) * 0.005f) > 2 * PI) a[i] -= 2 * PI;
-		if ((s[i] -= 0.01f, h[i] += s[i]) < 0) s[i] = 0.2f;
-		bvhInstance[i].SetTransform( T * R * mat4::Scale( 1.5f ) );
-	}
+	//static float a[16] = { 0 }, h[16] = { 5, 4, 3, 2, 1, 5, 4, 3 }, s[16] = { 0 };
+	//for (int i = 0, x = 0; x < 4; x++) for (int y = 0; y < 4; y++, i++)
+	//{
+	//	mat4 R, T = mat4::Translate( (x - 1.5f) * 2.5f, 0, (y - 1.5f) * 2.5f );
+	//	if ((x + y) & 1) R = mat4::RotateY( a[i] );
+	//	else R = mat4::Translate( 0, h[i / 2], 0 );
+	//	if ((a[i] += (((i * 13) & 7) + 2) * 0.005f) > 2 * PI) a[i] -= 2 * PI;
+	//	if ((s[i] -= 0.01f, h[i] += s[i]) < 0) s[i] = 0.2f;
+	//	bvhInstance[i].SetTransform( T * R * mat4::Scale( 1.5f ) );
+	//}
 	// update the TLAS
 	tlas.BuildQuick();
 }
@@ -84,7 +84,7 @@ float3 WhittedApp::Trace( Ray& ray, int rayDepth )
 	// shading
 	bool mirror = (instIdx * 17) & 1;
 	if (mirror)
-	{	
+	{
 		// calculate the specular reflection in the intersection point
 		Ray secondary;
 		secondary.D = ray.D - 2 * N * dot( N, ray.D );
@@ -111,7 +111,7 @@ void WhittedApp::Tick( float deltaTime )
 	// update the TLAS
 	AnimateScene();
 	// render the scene: multithreaded tiles
-	static float angle = 0; angle += 0.01f;
+	static float angle = 1.0f;/* angle += 0.01f;*/
 	mat4 M1 = mat4::RotateY( angle ), M2 = M1 * mat4::RotateX( -0.65f );
 	// setup screen plane in world space
 	float aspectRatio = (float)SCRWIDTH / SCRHEIGHT;

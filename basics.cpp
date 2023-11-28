@@ -10,10 +10,36 @@
 // rights are reserved. No responsibility is accepted either.
 // For updates, follow me on twitter: @j_bikker.
 
+namespace
+{
+	struct TriangleIndices
+	{
+		std::vector<uint32_t> vertices = std::vector<uint32_t>(3);
+		std::vector<uint32_t> uvs = std::vector<uint32_t>(3);
+		std::vector<uint32_t> normals = std::vector<uint32_t>(3);
+	};
+
+	void DecrementIndex(std::vector<uint32_t>& indices)
+	{
+		for (auto& i : indices)
+		{
+			--i;
+			assert(i >= 0);
+		}
+	}
+
+	void ZeroIndex(TriangleIndices& triangleIndices)
+	{
+		DecrementIndex(triangleIndices.vertices);
+		DecrementIndex(triangleIndices.uvs);
+		DecrementIndex(triangleIndices.normals);
+	};
+}
+
 TheApp* CreateApp() { return new BasicBVHApp(); }
 
 // triangle count
-#define N	64
+#define COUNT	240
 
 // forward declarations
 void Subdivide( uint nodeIdx );
@@ -30,10 +56,11 @@ __declspec(align(32)) struct BVHNode
 struct Ray { float3 O, D; float t = 1e30f; };
 
 // application data
-Tri tri[N];
-uint triIdx[N];
-BVHNode bvhNode[N * 2];
+Tri tri[COUNT];
+uint triIdx[COUNT];
+BVHNode bvhNode[COUNT * 2];
 uint rootNodeIdx = 0, nodesUsed = 1;
+int triCount = 0;
 
 // functions
 
@@ -85,13 +112,13 @@ void IntersectBVH( Ray& ray, const uint nodeIdx )
 void BuildBVH()
 {
 	// populate triangle index array
-	for (int i = 0; i < N; i++) triIdx[i] = i;
+	for (int i = 0; i < COUNT; i++) triIdx[i] = i;
 	// calculate triangle centroids for partitioning
-	for (int i = 0; i < N; i++)
+	for (int i = 0; i < COUNT; i++)
 		tri[i].centroid = (tri[i].vertex0 + tri[i].vertex1 + tri[i].vertex2) * 0.3333f;
 	// assign all triangles to root node
 	BVHNode& root = bvhNode[rootNodeIdx];
-	root.leftFirst = 0, root.triCount = N;
+	root.leftFirst = 0, root.triCount = COUNT;
 	UpdateNodeBounds( rootNodeIdx );
 	// subdivide recursively
 	Subdivide( rootNodeIdx );
@@ -157,15 +184,62 @@ void Subdivide( uint nodeIdx )
 
 void BasicBVHApp::Init()
 {
-	// intialize a scene with N random triangles
-	for (int i = 0; i < N; i++)
+	std::string filename = "assets/teapot-low.obj";
+	std::ifstream file(filename);
+	if (file.fail()) return;
+
+	std::array<float2, COUNT> UV = {}; // enough for dragon.obj
+	std::array<float3, COUNT> N = {};
+	std::array<float3, COUNT> P = {};
+	int UVs = 0, Ns = 0, Ps = 0, a, b, c, d, e, f, g, h, i;
+	for (std::string line; std::getline(file, line);)
 	{
-		float3 r0 = float3( RandomFloat(), RandomFloat(), RandomFloat() );
-		float3 r1 = float3( RandomFloat(), RandomFloat(), RandomFloat() );
-		float3 r2 = float3( RandomFloat(), RandomFloat(), RandomFloat() );
-		tri[i].vertex0 = r0 * 9 - float3( 5 );
-		tri[i].vertex1 = tri[i].vertex0 + r1, tri[i].vertex2 = tri[i].vertex0 + r2;
+		const std::string header = line.substr(0, line.find(" "));
+		if (header == "v")
+		{
+			const int ret = std::sscanf(line.c_str(), "v %f %f %f\n", &P[Ps].x, &P[Ps].y, &P[Ps].z);
+			assert(ret == 3);
+			++Ps;
+		}
+
+		if (header != "f")
+		{
+			continue;
+		}
+		else
+		{
+			TriangleIndices tri1;
+			TriangleIndices tri2;
+
+			// Counter-clockwise order
+			const int ret = std::sscanf(line.c_str(), "f %d/%d/%d %d/%d/%d %d/%d/%d %d/%d/%d\n",
+				&tri1.vertices[0], &tri1.uvs[0], &tri1.normals[0],
+				&tri1.vertices[1], &tri1.uvs[1], &tri1.normals[1],
+				&tri1.vertices[2], &tri1.uvs[2], &tri1.normals[2],
+				&tri2.vertices[2], &tri2.uvs[2], &tri2.normals[2]);
+			assert(ret == 9 || ret == 12);
+
+			ZeroIndex(tri1);
+			ZeroIndex(tri2);
+
+			if (ret == 9)
+			{
+				tri[triCount].vertex0 = P[tri1.vertices[0]];
+				tri[triCount].vertex1 = P[tri1.vertices[1]];
+				tri[triCount++].vertex2 = P[tri1.vertices[2]];
+			}
+			else if (ret == 12)
+			{
+				tri[triCount].vertex0 = P[tri1.vertices[0]];
+				tri[triCount].vertex1 = P[tri1.vertices[1]];
+				tri[triCount++].vertex2 = P[tri1.vertices[2]];
+				tri[triCount].vertex0 = P[tri1.vertices[0]];
+				tri[triCount].vertex1 = P[tri1.vertices[2]];
+				tri[triCount++].vertex2 = P[tri2.vertices[2]];
+			}
+		}
 	}
+
 	// construct the BVH
 	BuildBVH();
 }
